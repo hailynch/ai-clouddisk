@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { FolderTree } from "@/components/ui/folder-tree";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Folder, ChevronDown, ChevronRight } from "lucide-react";
 import { UserProfile } from "@/components/user/user-profile";
-import { useToast } from "@/components/ui/use-toast";
+import { mockFolders } from "@/lib/mock-data";
+import { FolderItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface FolderNavigationProps {
   currentPath: string;
@@ -13,60 +14,97 @@ interface FolderNavigationProps {
 }
 
 export function FolderNavigation({ currentPath, onNavigate }: FolderNavigationProps) {
-  const { toast } = useToast();
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["/"]));
   const [user, setUser] = useState<{ name: string; email: string } | undefined>();
 
-  // This would be replaced with actual data from Seafile API
-  const mockFolders = [
-    {
-      id: "1",
-      name: "Documents",
-      path: "/documents",
-      children: [
-        { id: "1-1", name: "Work", path: "/documents/work" },
-        { id: "1-2", name: "Personal", path: "/documents/personal" },
-      ],
-    },
-    {
-      id: "2",
-      name: "Pictures",
-      path: "/pictures",
-      children: [],
-    },
-  ];
+  const handleFolderClick = (folder: FolderItem, isExpand: boolean = false) => {
+    if (isExpand) {
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        if (next.has(folder.path)) {
+          next.delete(folder.path);
+        } else {
+          next.add(folder.path);
+        }
+        return next;
+      });
+    } else {
+      onNavigate(folder.path);
+    }
+  };
+
+  const renderFolder = (folder: FolderItem, level: number = 0) => {
+    const isExpanded = expandedFolders.has(folder.path);
+    const isSelected = currentPath === folder.path;
+
+    return (
+      <div key={folder.id}>
+        <div
+          className={cn(
+            "flex items-center gap-1 py-1 px-2 rounded-md cursor-pointer",
+            isSelected ? "bg-accent" : "hover:bg-accent/50",
+            level > 0 && "ml-4"
+          )}
+        >
+          {folder.children.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFolderClick(folder, true);
+              }}
+              className="p-1 hover:bg-accent/50 rounded-sm"
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+          )}
+          <div
+            className="flex items-center gap-2 flex-1 py-1"
+            onClick={() => handleFolderClick(folder)}
+          >
+            <Folder className="h-4 w-4 text-blue-500" />
+            <span className="text-sm truncate">{folder.name}</span>
+          </div>
+        </div>
+        {isExpanded && folder.children.length > 0 && (
+          <div className="mt-1">
+            {folder.children.map(child => renderFolder(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const handleLogin = () => {
-    // Mock login - replace with actual authentication
     setUser({
       name: "John Doe",
       email: "john.doe@example.com",
-    });
-    toast({
-      title: "登录成功",
-      description: "欢迎回来，John Doe！",
     });
   };
 
   const handleLogout = () => {
     setUser(undefined);
-    toast({
-      title: "已退出登录",
-      description: "您已成功退出登录。",
-    });
   };
 
   return (
     <div className="h-full flex flex-col">
-      <ScrollArea className="flex-1 p-4">
-        <FolderTree
-          data={mockFolders}
-          onSelect={onNavigate}
-          icons={{
-            folder: Folder,
-            expanded: ChevronDown,
-            collapsed: ChevronRight,
-          }}
-        />
+      <ScrollArea className="flex-1 p-2">
+        <div className="space-y-1">
+          <div
+            className={cn(
+              "flex items-center gap-2 py-1 px-2 rounded-md cursor-pointer",
+              currentPath === "/" ? "bg-accent" : "hover:bg-accent/50"
+            )}
+            onClick={() => onNavigate("/")}
+          >
+            <Folder className="h-4 w-4 text-blue-500" />
+            <span className="text-sm">Home</span>
+          </div>
+          {mockFolders.map(folder => renderFolder(folder))}
+        </div>
       </ScrollArea>
       <UserProfile
         user={user}
